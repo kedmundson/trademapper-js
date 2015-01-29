@@ -1,0 +1,94 @@
+<div class="overlay">
+  <div class="overlay__content customcsv">
+    <h2 class="title">Custom CSV Importer</h2>
+    <p>
+    Assign each column a role using the drop down list in the orange
+    box. Some roles require additional information which can be chosen using
+    the tick boxes and drop down lists underneath the orange box. Each
+    location in the trade route must be assigned an order by typing a number in the orange circle. Read the
+    <a href="https://trademapper.github.io/trademapper-js/">detailed instructions</a>
+    for more information on importing data.
+    </p>
+    {{? it.errors}}
+    <div class="customcsv__errors">
+      <p>There are some errors in the form - please correct them and then click "Done"</p>
+      {{~it.errors.general :generalError}}
+      <p>{{=generalError}}</p>
+      {{~}}
+    </div>
+    {{?}}
+    <!--<label for="csv-has-headers">Has headers</label>-->
+    <!--<input id="csv-has-headers" type="checkbox" >-->
+
+    <div class="customcsv__table_container">
+      <table class="customcsv__table customcsv__table--hasheader">
+        <thead>
+          <tr class="customcsv__headers">
+            {{~it.headers :header}}
+            <th><div class="customcsv__header-form-container" data-header="{{=header}}">
+              <p>{{=header}}
+              {{~it.globalTexts :text}}</p>
+                <fieldset class="customcsv__text--{{=text.type}}">
+                  <input type="text" name="{{=text.type}}" title="{{=text.title}}"
+                      {{? it.filterSpec[header][text.type]}}value="{{=it.filterSpec[header][text.type]}}"{{?}}
+                      {{? text.maxlength}}maxlength="{{=text.maxlength}}"{{?}}></input>
+                </fieldset>
+              {{~}}
+            </div></th>
+            {{~}}
+          </tr>
+          <tr class="customcsv__options">
+            {{~it.headers :header}}
+            <th>
+              <div class="customcsv__form-container {{?it.errors && it.errors.column && it.errors.column[header]}}customcsv__errors{{?}}"
+                  data-header="{{=header}}" data-type="{{=it.filterSpec[header].type}}">
+                {{?it.errors && it.errors.column && it.errors.column[header]}}
+                  {{~it.errors.column[header] :colError}}
+                  <p>{{=colError}}</p>
+                  {{~}}
+                {{?}}
+                {{~it.selects :select}}
+                <select class="customcsv__select--{{=select.type}}" name="{{=select.type}}">
+                  {{~select.options :option}}
+                  <option value="{{=option.value}}" {{? it.filterSpec[header][select.type] == option.value}}selected{{?}}>{{=option.text}}</option>
+                  {{~}}
+                </select>
+                {{~}}
+                {{~it.otherTexts :text}}
+                  <fieldset class="customcsv__text--{{=text.type}}">
+                    <label>{{=text.label}}</label>
+                    <input type="text" name="{{=text.type}}" title="{{=text.title}}"
+                        {{? it.filterSpec[header][text.type]}}value="{{=it.filterSpec[header][text.type]}}"{{?}}
+                        {{? text.maxlength}}maxlength="{{=text.maxlength}}"{{?}}></input>
+                  </fieldset>
+                {{~}}
+                {{~it.checkboxes :checkbox}}
+                  <fieldset class="customcsv__checkbox--{{=checkbox.type}}">
+                    <label>{{=checkbox.label}}</label>
+                    <input type="checkbox" name="{{=checkbox.type}}" title="{{=checkbox.title}}" {{? it.filterSpec[header][checkbox.type]}}checked{{?}}></input>
+                  </fieldset>
+                {{~}}
+              </div>
+            </th>
+            {{~}}
+          </tr>
+        </thead>
+        <tbody>
+            {{~it.data :row}}
+            <tr>
+              {{~row :val}}
+              <td><div>{{=val}}</div></td>
+              {{~}}
+            </tr>
+            {{~}}
+        </tbody>
+      </table>
+    </div>
+    <div class="customcsv__rowcount">{{=it.rowcount}} total rows</div>
+
+    <button class="btn btn-danger customcsv__cancel">Cancel</button>
+    <button class="btn btn-primary customcsv__done">Done</button>
+    <button class="btn btn-link customcsv__reset">Reset Form</button>
+
+  </div>
+</div>

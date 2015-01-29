@@ -3,11 +3,11 @@ define(
 	function(q, csv, csvdefs, route) {
 		"use strict";
 		var returnedCsv,
-			setReturnedCsv = function(csvType, csvData) {
+			setReturnedCsv = function(csvData, csvFirstTenRows, filterSpec) {
 				returnedCsv = csvData;
 			},
 			returnedFilters,
-			setReturnedFilters = function(csvType, csvData, filters) {
+			setReturnedFilters = function(csvData, filterSpec, filters) {
 				returnedFilters = filters;
 			},
 			errorMessageList,
@@ -38,21 +38,11 @@ define(
 			q.module("CSV", {
 				setup: function() {
 					// set a default function for collecting the returned routes
-					csv.init(setReturnedCsv, setReturnedFilters, setErrorMessage);
+					csv.init(setReturnedCsv, setReturnedFilters, setErrorMessage, false);
 					// we also need to be able to create points
 					route.setCountryGetPointFunc(function() { return [8, 9]; });
 					route.setLatLongToPointFunc(function(latlong) { return latlong; });
 				}
-			});
-
-			q.test('check error message for unknown csv type', function() {
-				returnedCsv = null;
-				errorMessageList = null;
-				csv.processCSVString(csvUnknown);
-				var routes = csv.filterDataAndReturnRoutes("unknown", returnedCsv, {});
-
-				q.equal(routes, null);
-				q.notEqual(errorMessageList, null);
 			});
 
 			q.test('check csv parsing for one line CSV without origin', function() {
@@ -62,7 +52,8 @@ define(
 
 				q.equal(errorMessageList, null);
 				q.notEqual(returnedCsv, null);
-				var routes = csv.filterDataAndReturnRoutes("cites", returnedCsv, initialFilterValue);
+				var routes = csv.filterDataAndReturnRoutes(
+					returnedCsv, csvdefs.filterSpec.cites, initialFilterValue);
 				var routeList = routes.getRoutes();
 				q.equal(routeList.length, 1);
 				q.equal(routeList[0].points.length, 2);
@@ -77,7 +68,8 @@ define(
 
 				q.equal(errorMessageList, null);
 				q.notEqual(returnedCsv, null);
-				var routes = csv.filterDataAndReturnRoutes("cites", returnedCsv, initialFilterValue);
+				var routes = csv.filterDataAndReturnRoutes(
+					returnedCsv, csvdefs.filterSpec.cites, initialFilterValue);
 				var routeList = routes.getRoutes();
 				q.equal(routeList.length, 1);
 				q.equal(routeList[0].points.length, 3);
@@ -93,7 +85,8 @@ define(
 
 				q.equal(errorMessageList, null);
 				q.notEqual(returnedCsv, null);
-				var routes = csv.filterDataAndReturnRoutes("cites", returnedCsv, initialFilterValue);
+				var routes = csv.filterDataAndReturnRoutes(
+					returnedCsv, csvdefs.filterSpec.cites, initialFilterValue);
 				var routeList = routes.getRoutes();
 				// There are 3 duplicates which will be combined
 				q.equal(routeList.length, 5);
@@ -180,7 +173,21 @@ define(
 							multiValueColumn: false,
 							multiselect: true,
 							type: "text",
-							values: ["H", "P", "T"]
+							values: ["H", "P", "T"],
+							verboseNames: {
+								"B": "Captive breeding / artificial propagation",
+								"E": "Educational",
+								"G": "Botanical garden",
+								"H": "Hunting trophy",
+								"L": "Law enforcement / judicial / forensic",
+								"M": "Medical (including biomedical research)",
+								"N": "Reintroduction / introduction into wild",
+								"P": "Personal",
+								"Q": "Circus or travelling exhibition",
+								"S": "Scientific",
+								"T": "Commercial",
+								"Z": "Zoo"
+							}
 						},
 						"Source": {
 							multiValueColumn: false,
@@ -441,6 +448,28 @@ define(
 					newCsvString = csv.trimCsvColumnNames(csvString);
 
 				q.equal(newCsvString, '"x,and x","y","z"\n1,2');
+			});
+
+			q.test('check getMinMaxYear finds min and max year from type year', function() {
+				var testFilters = {
+					filter1: {
+						type: "text"
+					},
+					filter2: {
+						type: "quantity",
+						min: 23,
+						max: 26
+					},
+					filter3: {
+						type: "year",
+						min: 2003,
+						max: 2006
+					}
+				};
+
+				var minMax = csv.getMinMaxYear(testFilters);
+				q.equal(minMax[0], 2003);
+				q.equal(minMax[1], 2006);
 			});
 
 			// TODO: tests for:

@@ -59,7 +59,7 @@ define(["d3"], function(d3) {
 			return fieldset;
 		},
 
-		addLocationField: function(fieldset, filters, columnName) {
+		addLocationField: function(fieldset, filters, columnName, countryCodeToName) {
 			var cName = this.columnNameToClassName(columnName);
 			var values = filters[columnName].values;
 			var textName = filters[columnName].hasOwnProperty("shortName") ? filters[columnName].shortName : columnName;
@@ -79,7 +79,7 @@ define(["d3"], function(d3) {
 					.text("Any " + textName);
 			}
 			for (var i = 0; i < values.length; i++) {
-				var textValue = values[i] ? values[i] : "<Blank " + textName + ">";
+				var textValue = countryCodeToName[values[i]] || values[i] || "<Blank " + textName + ">";
 				locationSelect.append("option")
 					.attr("value", values[i])
 					.text(textValue);
@@ -191,7 +191,13 @@ define(["d3"], function(d3) {
 					.text("Any " + textName);
 			}
 			for (var i = 0; i < values.length; i++) {
-				var textValue = values[i] ? values[i] : "<Blank " + textName + ">";
+				var textValue;
+				if (filters[columnName].hasOwnProperty("verboseNames")) {
+					// If verboseNames exists for this column, use values[i] to look up the verbose name to use as textValue.
+					textValue = filters[columnName].verboseNames[values[i]] || values[i] || "<Blank " + textName + ">";
+				} else {
+					textValue = values[i] || "<Blank " + textName + ">";
+				}
 				categorySelect.append("option")
 					.attr("value", values[i])
 					.text(textValue);
@@ -278,7 +284,7 @@ define(["d3"], function(d3) {
 			};
 		},
 
-		createFormFromFilters: function(formElement, filters) {
+		createFormFromFilters: function(formElement, filters, countryCodeToName) {
 			var i, locationFilters, locationFieldset, yearFilters,
 				categoryFilters, categoryFieldset;
 
@@ -292,7 +298,7 @@ define(["d3"], function(d3) {
 				return filters[a].locationOrder - filters[b].locationOrder;
 			});
 			for (i = 0; i < locationFilters.length; i++) {
-				this.addLocationField(locationFieldset, filters, locationFilters[i]);
+				this.addLocationField(locationFieldset, filters, locationFilters[i], countryCodeToName);
 			}
 
 			yearFilters = this.getFilterNamesForType(filters, ["year"]);
@@ -320,6 +326,28 @@ define(["d3"], function(d3) {
 			var numericFieldset = formElement.append("fieldset")
 				.attr("class", "filters-group group-numeric");
 			*/
+		},
+
+		/*
+		 * whether the year range should be enabled or not
+		 */
+		setYearRangeStatus: function(enable) {
+			var yearRangeFieldset = document.querySelector(".filters-group.group-year"),
+				yearLegend = document.querySelector("legend.filter-group-title.year"),
+				yearFromSelect = document.querySelector("#year-select-from"),
+				yearToSelect = document.querySelector("#year-select-to");
+			if (enable) {
+				yearRangeFieldset.classList.remove("disabled");
+				yearFromSelect.removeAttribute('disabled');
+				yearToSelect.removeAttribute('disabled');
+				yearLegend.textContent = 'Year range';
+			} else {
+				yearRangeFieldset.classList.add("disabled");
+				yearFromSelect.setAttribute('disabled', '');
+				yearToSelect.setAttribute('disabled', '');
+				yearLegend.textContent = 'Year range disabled';
+			}
 		}
+
 	};
 });

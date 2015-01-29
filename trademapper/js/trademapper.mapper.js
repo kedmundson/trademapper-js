@@ -1,4 +1,3 @@
-
 define(["d3", "topojson", "worldmap", "disputedareas", "countrycentre"], function(d3, topojson, mapdata, disputedareas, countryCentre) {
 	"use strict";
 
@@ -10,6 +9,8 @@ define(["d3", "topojson", "worldmap", "disputedareas", "countrycentre"], functio
 	svgDefs: null,
 	config: null,
 	countries: null,
+	countryCodeToName: null,
+	countryCodeToInfo: null,
 	borders: null,
 	disputed: null,
 	disputedborders: null,
@@ -29,6 +30,35 @@ define(["d3", "topojson", "worldmap", "disputedareas", "countrycentre"], functio
 		this.addPatternDefs();
 		this.drawMap();
 		this.setupZoom();
+		this.makeCountryNameHash();
+	},
+
+	makeCountryNameHash: function() {
+		/* CITES uses some non-ISO codes for location, starting with X.
+		Source: http://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_Database_Guide.pdf
+		*/
+		var nameHash = {
+			"XA": "French Antilles",
+			"XC": "Caribbean",
+			"XE": "Europe",
+			"XF": "Africa",
+			"XM": "South America",
+			"XS": "Asia",
+			"XV": "Various",
+			"XX": "Unknown"
+		};
+		var infoHash = {};
+		this.countries.forEach(function(e) {
+			nameHash[e.id] = e.properties.name;
+			infoHash[e.id] = {
+				name: e.properties.name,
+				formal_en: e.properties.formal_en,
+				region_un: e.properties.region_un,
+				region_wb: e.properties.region_wb
+			};
+		});
+		this.countryCodeToName = nameHash;
+		this.countryCodeToInfo = infoHash;
 	},
 
 	drawMap: function() {
@@ -81,20 +111,32 @@ define(["d3", "topojson", "worldmap", "disputedareas", "countrycentre"], functio
 	setupZoom: function() {
 		var moduleThis = this,
 		zoomed = function() {
-			// TODO: put map in group so it can be zoomed separate to legend etc
-			moduleThis.zoomg.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
-			d3.selectAll(".country-border").attr("stroke-width", (1/d3.event.scale).toString());
+			var translate = d3.event.translate,
+				scale = d3.event.scale;
+			console.log("target: " + d3.target);
+			console.log("PRE: scale: " + scale + " translate: " + translate);
+			translate[0] = Math.max(-600*scale, Math.min(600*scale, translate[0]));
+			translate[1] = Math.max(-350*scale, Math.min(350*scale, translate[1]));
+			console.log("POST: translate: " + translate);
+
+			moduleThis.zoomg.attr("transform", "translate(" + translate + ")scale(" + scale + ")");
+			d3.selectAll(".country-border").attr("stroke-width", (1/scale).toString());
 			// change the width of the paths after zoom
 			d3.selectAll(".zoompath").each(function(d, i) {
 				this.setAttribute(
 					"stroke-width",
-					(this.attributes["data-origwidth"].value/d3.event.scale).toString());
+					(this.attributes["data-origwidth"].value/scale).toString());
+			});
+			d3.selectAll("circle.tradenode").each(function(d, i) {
+				this.setAttribute(
+					"r",
+					(this.attributes["data-orig-r"].value/scale).toString());
 			});
 		},
 		zoom = d3.behavior.zoom()
 			.translate([0, 0])
 			.scale(1)
-			.scaleExtent([1, 20])
+			.scaleExtent([0.5, 20])
 			.on("zoom", zoomed);
 		this.zoomg.call(zoom);
 

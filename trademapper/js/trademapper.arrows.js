@@ -15,6 +15,7 @@ define(["d3", "spiralTree", "trademapper.route", "util"], function(d3, flowmap, 
 	minArrowWidth: null,
 	maxArrowWidth: null,
 	pointTypeSize: null,
+	countryCodeToInfo: null,
 	maxQuantity: null,
 	centerTerminals: null,
 	narrowWideStrokeThreshold: 3,  // used for deciding whether to use arrows inside or outside line
@@ -25,7 +26,7 @@ define(["d3", "spiralTree", "trademapper.route", "util"], function(d3, flowmap, 
 	 * Save the svg we use for later user
 	 * Add the arrow head to defs/marker in the SVG
 	 */
-	init: function(svgElement, zoomg, svgDefs, tooltipSelector, colours, minWidth, maxWidth, pointTypeSize) {
+	init: function(svgElement, zoomg, svgDefs, tooltipSelector, colours, minWidth, maxWidth, pointTypeSize, countryCodeToInfo) {
 		this.mapsvg = svgElement;
 		this.zoomg = zoomg;
 		this.arrowg = this.zoomg.append("g").attr("class", "arrows");
@@ -36,6 +37,7 @@ define(["d3", "spiralTree", "trademapper.route", "util"], function(d3, flowmap, 
 		this.minArrowWidth = minWidth;
 		this.maxArrowWidth = maxWidth;
 		this.pointTypeSize = pointTypeSize;
+		this.countryCodeToInfo = countryCodeToInfo;
 		this.addDefsToSvg();
 		this.setUpFlowmap();
 		this.pathTooltip.style("opacity", 0);
@@ -115,9 +117,11 @@ define(["d3", "spiralTree", "trademapper.route", "util"], function(d3, flowmap, 
 	setUpFlowmap: function() {
 		this.flowmap = new flowmap.SpiralTree(this.zoomg, function(xy) { return [xy[1], xy[0]]; });
 		this.flowmap.extraFlowmapClass = "traderoute zoompath";
-		this.flowmap.setOpacity(this.arrowColours.opacity);
+		// any transparency leads to circles on path joins, which users often
+		// interpret as a point.  So for flowmaps, never use transparency.
+		this.flowmap.setOpacity(1);
 		this.flowmap.setNodeDrawable(false);
-		this.flowmap.markerStart.wide = "url(#markerFlowmapTreeArrowWide)";
+		this.flowmap.markerStart.wide = null;
 		this.flowmap.markerStart.narrow = "url(#markerFlowmapTreeArrowNarrow)";
 		this.flowmap.narrowWideStrokeThreshold = this.narrowWideStrokeThreshold;
 	},
@@ -206,10 +210,17 @@ define(["d3", "spiralTree", "trademapper.route", "util"], function(d3, flowmap, 
 			.on('mouseout', this.genericMouseOutPath);
 	},
 
-	drawRouteCollectionPlainArrows: function(collection, pointRoles) {
+	drawRouteCollectionPlainArrows: function(collection, pointRoles, maxQuantity) {
 		this.clearArrows();
 		this.clearPoints();
-		this.maxQuantity = parseFloat(collection.maxQuantity().toPrecision(2));
+		if (maxQuantity) {
+			this.maxQuantity = maxQuantity;
+		} else {
+			this.maxQuantity = collection.maxQuantity();
+		}
+		// round to 2 significant digits
+		this.maxQuantity = parseFloat(this.maxQuantity.toPrecision(2));
+
 		var routeList = collection.getRoutes();
 		for (var i = 0; i < routeList.length; i++) {
 			if (routeList[i].points.length >= 2) {
@@ -229,6 +240,7 @@ define(["d3", "spiralTree", "trademapper.route", "util"], function(d3, flowmap, 
 			.attr("cx", x)
 			.attr("cy", y)
 			.attr("r", this.pointTypeSize[pointType])
+			.attr("data-orig-r", this.pointTypeSize[pointType])
 			.attr("class", "tradenode " + pointType + " " + extraclass);
 	},
 
@@ -362,8 +374,13 @@ define(["d3", "spiralTree", "trademapper.route", "util"], function(d3, flowmap, 
 					'<span class="location-role-icon ' + role + '">' +
 					role.charAt(0).toUpperCase() + '</span>';
 				for (var j = 0; j < pointsWithRole.length; j++) {
+					var titleAttr = '',
+						countryCode = pointsWithRole[j];
+					if (this.countryCodeToInfo.hasOwnProperty(countryCode)) {
+						titleAttr = ' title="' + this.countryCodeToInfo[countryCode].formal_en + '"';
+					}
 					tooltiptext += ' <span class="location-role-country ' +
-						pointsWithRole[j] + '">' + pointsWithRole[j] + '</span>';
+						countryCode + '"' + titleAttr + '>' + countryCode + '</span>';
 				}
 				tooltiptext += '</p>';
 			}
@@ -433,12 +450,17 @@ define(["d3", "spiralTree", "trademapper.route", "util"], function(d3, flowmap, 
 			.style("opacity", 0);
 	},
 
-	drawRouteCollectionFlowmap: function(collection, pointRoles) {
+	drawRouteCollectionFlowmap: function(collection, pointRoles, maxQuantity) {
 		var center, terminals;
 		var ctAndMax = collection.getCenterTerminalList();
 		this.centerTerminals = ctAndMax.centerTerminalList;
+		if (maxQuantity) {
+			this.maxQuantity = maxQuantity;
+		} else {
+			this.maxQuantity = ctAndMax.maxSourceQuantity;
+		}
 		// round to 2 significant digits
-		this.maxQuantity = parseFloat(ctAndMax.maxSourceQuantity.toPrecision(2));
+		this.maxQuantity = parseFloat(this.maxQuantity.toPrecision(2));
 
 		this.flowmap.clearSpiralPaths();
 		this.clearPoints();
@@ -450,7 +472,7 @@ define(["d3", "spiralTree", "trademapper.route", "util"], function(d3, flowmap, 
 			// set up flowmap settings for this path
 			this.flowmap.extraSpiralClass = "traderoute zoompath center-" + center.point.toString();
 			this.flowmap.mouseOverFunc = this.createFlowmapMouseOverFunc(i);
-			this.flowmap.mouseOutFunc = this.genericMouseOutPath;
+			this.flowmap.mouseOutFunc = this.flowmapMouseOutPath;
 
 			// now do preprocess and drawing
 			this.flowmap.preprocess(terminals, center);
@@ -469,18 +491,28 @@ define(["d3", "spiralTree", "trademapper.route", "util"], function(d3, flowmap, 
 			.attr("class", "legend tradenode-label")
 			.text(roleLabel);
 	},
+
+	formatLegendValue: function(labelValue) {
+		var abs = Math.abs(Number(labelValue));
+		return abs >= 1.0e+9 ?
+			(abs / 1.0e+9).toFixed(0) + " billion"
+			// Six Zeroes for Millions
+			: abs >= 1.0e+6 ?
+				(abs / 1.0e+6).toFixed(0) + " million"
+				: abs.toFixed(0);
+ 	},
 	
 	drawLegend: function() {
 		// use parseFloat as the height has "px" at the end
 		var gLegend, i, strokeWidth, value, valueText, circleX, circleY,
-			xOffset = 5,
-			yOffset = -80,
+			xOffset = 100,
+			yOffset = 100,
 			margin = 10,
-			lineLength = this.maxArrowWidth + 10,
+			lineLength = this.maxArrowWidth + 5,
 			maxWidth = this.maxArrowWidth,
 			roundUpWidth = function (factor) { return Math.max(maxWidth*factor, 8); },
-			legendHeight = Math.max(110, margin*4 + 8 + roundUpWidth(1) + roundUpWidth(0.5) + roundUpWidth(0.25)),
-			legendWidth = lineLength + margin*4 + 10 + this.maxQuantity.toFixed(1).length*8 + 80,
+			legendHeight = Math.max(90, margin*3 + 8 + roundUpWidth(1) + roundUpWidth(0.25) + roundUpWidth(0.25)),
+			legendWidth = lineLength + margin*4 + 10 + this.maxQuantity.toFixed(1).length*8 + 20,
 			//svgHeight = 430,  // from viewbox - TODO: get this properly
 			svgHeight = 0,
 			lineVertical = svgHeight;
@@ -490,7 +522,7 @@ define(["d3", "spiralTree", "trademapper.route", "util"], function(d3, flowmap, 
 		gLegend = this.mapsvg.append("g").attr("class", "legend");
 		gLegend.append("rect")
 			.attr("x", 5 + xOffset)
-			.attr("y", svgHeight - (margin/2) - legendHeight + yOffset)
+			.attr("y", svgHeight - (margin) - legendHeight + yOffset)
 			.attr("width", legendWidth)
 			.attr("height", legendHeight)
 			.attr("class", "legend legend-background");
@@ -509,7 +541,7 @@ define(["d3", "spiralTree", "trademapper.route", "util"], function(d3, flowmap, 
 				strokeWidth = this.minArrowWidth;
 				value = (this.maxQuantity * this.minArrowWidth) / this.maxArrowWidth;
 			}
-			valueText = value.toFixed(0);
+			valueText = this.formatLegendValue(value);
 			if (i === 3) {
 				valueText = "< " + valueText;
 			}
@@ -525,19 +557,19 @@ define(["d3", "spiralTree", "trademapper.route", "util"], function(d3, flowmap, 
 				.attr("class", "legend traderoute");
 
 			gLegend.append("text")
-				.attr("x", lineLength + xOffset + (margin * 2))
+				.attr("x", lineLength + xOffset + (margin +5))
 				.attr("y", lineVertical + 5 + yOffset)
 				.attr("class", "legend traderoute-label")
 				.text(valueText);
 		}
 
 		// Now add a legend for the circles
-		circleX = lineLength + xOffset + (margin * 3) +
-			this.maxQuantity.toFixed(1).length * 8;
-		circleY = svgHeight + yOffset;
+		circleX = lineLength + xOffset + (margin * 2) +
+			this.maxQuantity.toFixed(1).length * 7;
+		circleY = (svgHeight + yOffset)-13;
 
 		for (i = tmroute.locationRoles.length-1; i >= 0; i--) {
-			circleY -= 25;
+			circleY -= 18;
 			this.drawPointRoleLabel(tmroute.locationRoles[i], gLegend, circleX, circleY);
 		}
 	}

@@ -1,4 +1,4 @@
-define([], function() {
+define(['jquery'], function($) {
 	return {
 		intersection: function(arr1, arr2) {
 			var ret = [];
@@ -11,6 +11,27 @@ define([], function() {
 				}
 			}
 			return ret;
+		},
+
+		isInt: function(value) {
+			return (typeof value === 'number' && (value%1) === 0);
+		},
+
+		/*
+		 * deep copy of a javascript object
+		 */
+		deepCopy: function(obj) {
+			return $.extend(true, {}, obj);
+		},
+
+		corsProxy: function(url) {
+			// so we can have ?xyz=345&abc=789 ...
+			//url = decodeURI(url);
+			var protocol = 'http';
+			if (url.indexOf('https://') === 0) {
+				protocol = 'https';
+			}
+			return protocol + "://www.corsproxy.com/" + url.replace(/^https?:\/\//, "");
 		},
 
 		getPageOffsetRect: function(elem) {
