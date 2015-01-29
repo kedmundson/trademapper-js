@@ -40,6 +40,7 @@ define(
 	filterFormElement: null,
 	tooltipElement: null,
 	fileInputElement: null,
+  zoomControlElement: null,
 	tmsvg: null,
 	svgDefs: null,
 	zoomg: null,
@@ -95,9 +96,12 @@ define(
 		this.tooltipElement = this.mapRootElement.append("div")
 			.attr("id", "maptooltip");
 
+    this.zoomControlElement = this.mapRootElement.append("div")
+      .attr("id", "zoomControl");
+
 		// need to init mapper before arrows otherwise the map is on top of
 		// the arrows
-		mapper.init(this.zoomg, this.controlg, this.svgDefs, this.config);
+		mapper.init(this.zoomg, this.zoomControlElement, this.controlg, this.svgDefs, this.config);
 		arrows.init(this.tmsvg, this.zoomg, this.svgDefs, '#maptooltip', this.config.arrowColours,
 			this.config.minArrowWidth, this.config.maxArrowWidth, this.config.pointTypeSize);
 

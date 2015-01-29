@@ -100,6 +100,11 @@ define(["d3", "topojson", "worldmap", "disputedareas", "countrycentre"], functio
 
 		// and add some controls to allow zooming - html or svg?
 		// add + and - text bits, function to change the scale thing
+
+    d3.select(this.zoomControlElement).on("click", function() {
+      alert('hello world');  
+    });
+
 	},
 
 	resetZoom: function () {
